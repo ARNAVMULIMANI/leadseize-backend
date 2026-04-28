@@ -1,0 +1,84 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Agent {
+  id                  String        @id @default(cuid())
+  name                String
+  email               String        @unique
+  phone               String
+  websiteUrl          String
+  businessDescription String
+  scrapedContext      String?
+  twilioSid           String?
+  twilioToken         String?
+  twilioPhone         String?
+  whatsappEnabled     Boolean       @default(false)
+  alertEmail          String
+  alertPhone          String
+  createdAt           DateTime      @default(now())
+  leads               Lead[]
+  reviews             GoogleReview[]
+  nurtureSteps        NurtureStep[]
+}
+
+model Lead {
+  id            String        @id @default(cuid())
+  agentId       String
+  agent         Agent         @relation(fields: [agentId], references: [id])
+  channel       String
+  fromNumber    String
+  fromName      String?
+  status        String        @default("active")
+  score         Int?
+  summary       String?
+  budget        String?
+  timeline      String?
+  location      String?
+  leadType      String?
+  preApproved   Boolean?
+  lastMessageAt DateTime?
+  createdAt     DateTime      @default(now())
+  messages      Message[]
+  nurtureSteps  NurtureStep[]
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id])
+  role      String
+  content   String
+  createdAt DateTime @default(now())
+}
+
+model NurtureStep {
+  id           String    @id @default(cuid())
+  leadId       String
+  lead         Lead      @relation(fields: [leadId], references: [id])
+  agentId      String
+  agent        Agent     @relation(fields: [agentId], references: [id])
+  stepNumber   Int
+  scheduledFor DateTime
+  sentAt       DateTime?
+  status       String    @default("pending")
+  message      String
+}
+
+model GoogleReview {
+  id           String    @id @default(cuid())
+  agentId      String
+  agent        Agent     @relation(fields: [agentId], references: [id])
+  reviewerName String
+  rating       Int
+  reviewText   String
+  aiResponse   String?
+  respondedAt  DateTime?
+  status       String    @default("pending")
+  createdAt    DateTime  @default(now())
+}
