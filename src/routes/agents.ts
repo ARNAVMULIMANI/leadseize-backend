@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../lib/prisma';
 import { scrapeBusinessInfo } from '../services/scraper';
+import { provisionPhoneNumber } from '../services/twilio';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 
 const router = Router();
@@ -10,6 +11,26 @@ const router = Router();
 function signToken(agentId: string): string {
   const secret = process.env.JWT_SECRET!;
   return jwt.sign({ agentId }, secret, { expiresIn: '7d' });
+}
+
+// Fire scraping and phone provisioning in the background after agent creation
+function runPostCreateJobs(agentId: string, websiteUrl: string): void {
+  scrapeBusinessInfo(websiteUrl)
+    .then(async (info) => {
+      const parts: string[] = [];
+      if (info.name) parts.push(`Business: ${info.name}`);
+      if (info.phone) parts.push(`Phone: ${info.phone}`);
+      if (info.email) parts.push(`Email: ${info.email}`);
+      if (info.address) parts.push(`Address: ${info.address}`);
+      await prisma.agent.update({
+        where: { id: agentId },
+        data: { scrapedContext: parts.join('\n') },
+      });
+    })
+    .catch((err) => console.error('[Agents] Scrape failed for', websiteUrl, err));
+
+  provisionPhoneNumber(agentId)
+    .catch((err) => console.error('[Agents] Phone provisioning failed for agent', agentId, err));
 }
 
 // POST /agents/register
@@ -28,19 +49,7 @@ router.post('/register', async (req: Request, res: Response, next: NextFunction)
       data: { name, email, phone, websiteUrl, businessDescription, alertEmail, alertPhone, passwordHash },
     });
 
-    scrapeBusinessInfo(websiteUrl)
-      .then(async (info) => {
-        const parts: string[] = [];
-        if (info.name) parts.push(`Business: ${info.name}`);
-        if (info.phone) parts.push(`Phone: ${info.phone}`);
-        if (info.email) parts.push(`Email: ${info.email}`);
-        if (info.address) parts.push(`Address: ${info.address}`);
-        await prisma.agent.update({
-          where: { id: agent.id },
-          data: { scrapedContext: parts.join('\n') },
-        });
-      })
-      .catch((err) => console.error('[Agents] Scrape failed for', websiteUrl, err));
+    runPostCreateJobs(agent.id, websiteUrl);
 
     const token = signToken(agent.id);
     const { passwordHash: _, ...agentSafe } = agent;
@@ -81,7 +90,7 @@ router.post('/login', async (req: Request, res: Response, next: NextFunction) =>
   }
 });
 
-// POST /agents — legacy unauthenticated create (kept for backwards compat)
+// POST /agents — unauthenticated create (legacy / admin use)
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { name, email, phone, websiteUrl, businessDescription, alertEmail, alertPhone } = req.body;
@@ -90,22 +99,49 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
       data: { name, email, phone, websiteUrl, businessDescription, alertEmail, alertPhone },
     });
 
-    scrapeBusinessInfo(websiteUrl)
-      .then(async (info) => {
-        const parts: string[] = [];
-        if (info.name) parts.push(`Business: ${info.name}`);
-        if (info.phone) parts.push(`Phone: ${info.phone}`);
-        if (info.email) parts.push(`Email: ${info.email}`);
-        if (info.address) parts.push(`Address: ${info.address}`);
-        await prisma.agent.update({
-          where: { id: agent.id },
-          data: { scrapedContext: parts.join('\n') },
-        });
-      })
-      .catch((err) => console.error('[Agents] Scrape failed for', websiteUrl, err));
+    runPostCreateJobs(agent.id, websiteUrl);
 
     const { passwordHash: _, ...agentSafe } = agent;
     res.status(201).json({ agent: agentSafe });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /agents/:id/status — protected dashboard summary
+router.get('/:id/status', requireAuth, async (req: AuthRequest & Request<{ id: string }>, res: Response, next: NextFunction) => {
+  try {
+    const agent = await prisma.agent.findUnique({ where: { id: req.params.id } });
+
+    if (!agent) {
+      res.status(404).json({ error: 'Agent not found' });
+      return;
+    }
+
+    const startOfWeek = new Date();
+    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    const [totalLeads, qualifiedLeads, weekLeads] = await Promise.all([
+      prisma.lead.count({ where: { agentId: agent.id } }),
+      prisma.lead.count({
+        where: {
+          agentId: agent.id,
+          OR: [{ status: 'handoff' }, { score: { gte: 70 } }],
+        },
+      }),
+      prisma.lead.count({
+        where: { agentId: agent.id, createdAt: { gte: startOfWeek } },
+      }),
+    ]);
+
+    const { passwordHash: _, ...agentSafe } = agent;
+    res.json({
+      agent: agentSafe,
+      phone: agent.twilioPhone,
+      whatsappEnabled: agent.whatsappEnabled,
+      stats: { totalLeads, qualifiedLeads, weekLeads },
+    });
   } catch (err) {
     next(err);
   }
