@@ -1,9 +1,10 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma';
+import { requireAuth, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
-router.get('/', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/', requireAuth, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { agentId } = req.query;
 
@@ -24,7 +25,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
-router.get('/:id', async (req: Request<{ id: string }>, res: Response, next: NextFunction) => {
+router.get('/:id', requireAuth, async (req: AuthRequest & Request<{ id: string }>, res: Response, next: NextFunction) => {
   try {
     const lead = await prisma.lead.findUnique({
       where: { id: req.params.id },
@@ -42,7 +43,7 @@ router.get('/:id', async (req: Request<{ id: string }>, res: Response, next: Nex
   }
 });
 
-router.put('/:id/status', async (req: Request<{ id: string }>, res: Response, next: NextFunction) => {
+router.put('/:id/status', requireAuth, async (req: AuthRequest & Request<{ id: string }>, res: Response, next: NextFunction) => {
   try {
     const { status } = req.body;
 

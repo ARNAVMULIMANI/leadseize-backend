@@ -1,13 +1,14 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma';
 import { generateResponse } from '../services/ai';
+import { requireAuth, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
 const RESPOND_SYSTEM_PROMPT =
   'You are a professional reputation manager for a real estate agent. Write a short, warm, professional response to this Google review. If it\'s a positive review, thank them and mention their experience. If it\'s a negative review (rating 1-3), acknowledge their concern professionally, apologize, and offer to resolve it offline. Keep it under 100 words. Never be defensive.';
 
-router.get('/', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/', requireAuth, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { agentId } = req.query;
 
@@ -27,7 +28,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
-router.post('/', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/', requireAuth, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { agentId, reviewerName, rating, reviewText } = req.body;
 
@@ -46,7 +47,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
-router.post('/respond/:id', async (req: Request<{ id: string }>, res: Response, next: NextFunction) => {
+router.post('/respond/:id', requireAuth, async (req: AuthRequest & Request<{ id: string }>, res: Response, next: NextFunction) => {
   try {
     const review = await prisma.googleReview.findUnique({
       where: { id: req.params.id },
