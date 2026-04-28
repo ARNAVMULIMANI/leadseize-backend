@@ -3,6 +3,7 @@ import { validateTwilio } from '../middleware/validateTwilio';
 import { prisma } from '../lib/prisma';
 import { chat } from '../services/ai';
 import { checkAndTriggerHandoff } from '../services/handoff';
+import logger from '../lib/logger';
 
 const router = Router();
 
@@ -122,7 +123,7 @@ async function handleInbound(
 
     // Check qualification score and trigger handoff if threshold met — async, doesn't delay reply
     checkAndTriggerHandoff(lead.id).catch((err) =>
-      console.error(`[Webhooks/${channel}] Handoff check failed:`, err)
+      logger.error(`[Webhooks/${channel}] Handoff check failed`, { err })
     );
 
     res.type('text/xml').send(twimlMessage(aiReply));

@@ -1,5 +1,6 @@
 import twilio from 'twilio';
 import { prisma } from '../lib/prisma';
+import logger from '../lib/logger';
 
 const client = twilio(
   process.env.TWILIO_ACCOUNT_SID,
@@ -55,6 +56,6 @@ export async function provisionPhoneNumber(agentId: string): Promise<string> {
     },
   });
 
-  console.log(`[Twilio] Provisioned ${purchased.phoneNumber} for agent ${agentId}`);
+  logger.info(`[Twilio] Provisioned ${purchased.phoneNumber} for agent ${agentId}`);
   return purchased.phoneNumber;
 }

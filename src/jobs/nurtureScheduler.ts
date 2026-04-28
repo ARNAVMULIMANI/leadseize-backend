@@ -1,11 +1,12 @@
 import cron from 'node-cron';
 import { sendNurtureMessage } from '../services/nurture';
 import { prisma } from '../lib/prisma';
+import logger from '../lib/logger';
 
 export function startNurtureScheduler(): void {
   // Runs every day at 9am
   cron.schedule('0 9 * * *', async () => {
-    console.log('[NurtureScheduler] Running nurture job...');
+    logger.info('[NurtureScheduler] Running nurture job...');
 
     try {
       const now = new Date();
@@ -48,12 +49,12 @@ export function startNurtureScheduler(): void {
           data: { status: 'sent', sentAt: now },
         });
 
-        console.log(`[NurtureScheduler] Sent step ${step.stepNumber} to lead ${lead.id}`);
+        logger.info(`[NurtureScheduler] Sent step ${step.stepNumber} to lead ${lead.id}`);
       }
     } catch (err) {
-      console.error('[NurtureScheduler] Error:', err);
+      logger.error('[NurtureScheduler] Error:', { err });
     }
   });
 
-  console.log('[NurtureScheduler] Scheduler started');
+  logger.info('[NurtureScheduler] Scheduler started');
 }

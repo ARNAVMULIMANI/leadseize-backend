@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import { prisma } from '../lib/prisma';
 import { generateResponse } from '../services/ai';
+import logger from '../lib/logger';
 
 const RESPOND_SYSTEM_PROMPT =
   'You are a professional reputation manager for a real estate agent. Write a short, warm, professional response to this Google review. If it\'s a positive review, thank them and mention their experience. If it\'s a negative review (rating 1-3), acknowledge their concern professionally, apologize, and offer to resolve it offline. Keep it under 100 words. Never be defensive.';
@@ -8,7 +9,7 @@ const RESPOND_SYSTEM_PROMPT =
 export function startReviewMonitor(): void {
   // Runs every 30 minutes
   cron.schedule('*/30 * * * *', async () => {
-    console.log('[ReviewMonitor] Checking for pending reviews...');
+    logger.info('[ReviewMonitor] Checking for pending reviews...');
 
     try {
       const pending = await prisma.googleReview.findMany({
@@ -16,7 +17,7 @@ export function startReviewMonitor(): void {
       });
 
       if (pending.length === 0) {
-        console.log('[ReviewMonitor] No pending reviews.');
+        logger.info('[ReviewMonitor] No pending reviews.');
         return;
       }
 
@@ -31,12 +32,12 @@ export function startReviewMonitor(): void {
           data: { aiResponse, status: 'responded', respondedAt: new Date() },
         });
 
-        console.log(`[ReviewMonitor] Responded to review ${review.id} (${review.rating}★ from ${review.reviewerName})`);
+        logger.info(`[ReviewMonitor] Responded to review ${review.id} (${review.rating}★ from ${review.reviewerName})`);
       }
     } catch (err) {
-      console.error('[ReviewMonitor] Error:', err);
+      logger.error('[ReviewMonitor] Error:', { err });
     }
   });
 
-  console.log('[ReviewMonitor] Monitor started (runs every 30 minutes)');
+  logger.info('[ReviewMonitor] Monitor started (runs every 30 minutes)');
 }

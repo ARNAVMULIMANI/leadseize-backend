@@ -5,6 +5,7 @@ import { prisma } from '../lib/prisma';
 import { scrapeBusinessInfo } from '../services/scraper';
 import { provisionPhoneNumber } from '../services/twilio';
 import { requireAuth, AuthRequest } from '../middleware/auth';
+import logger from '../lib/logger';
 
 const router = Router();
 
@@ -27,10 +28,10 @@ function runPostCreateJobs(agentId: string, websiteUrl: string): void {
         data: { scrapedContext: parts.join('\n') },
       });
     })
-    .catch((err) => console.error('[Agents] Scrape failed for', websiteUrl, err));
+    .catch((err) => logger.error('[Agents] Scrape failed', { websiteUrl, err }));
 
   provisionPhoneNumber(agentId)
-    .catch((err) => console.error('[Agents] Phone provisioning failed for agent', agentId, err));
+    .catch((err) => logger.error('[Agents] Phone provisioning failed', { agentId, err }));
 }
 
 // POST /agents/register

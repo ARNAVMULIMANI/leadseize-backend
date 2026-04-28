@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer';
 import { prisma } from '../lib/prisma';
 import { analyzeLeadIntent } from './ai';
+import logger from '../lib/logger';
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -76,6 +77,6 @@ export async function checkAndTriggerHandoff(leadId: string): Promise<void> {
       toEmail: lead.agent.alertEmail,
     });
 
-    console.log(`[Handoff] Lead ${leadId} handed off — score ${score}`);
+    logger.info(`[Handoff] Lead ${leadId} handed off`, { score });
   }
 }
