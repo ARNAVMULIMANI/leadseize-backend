@@ -22,20 +22,24 @@ export function startReviewMonitor(): void {
       }
 
       for (const review of pending) {
-        const aiResponse = await generateResponse(
-          `${review.rating}-star review from ${review.reviewerName}: "${review.reviewText}"`,
-          RESPOND_SYSTEM_PROMPT
-        );
+        try {
+          const aiResponse = await generateResponse(
+            `${review.rating}-star review from ${review.reviewerName}: "${review.reviewText}"`,
+            RESPOND_SYSTEM_PROMPT
+          );
 
-        await prisma.googleReview.update({
-          where: { id: review.id },
-          data: { aiResponse, status: 'responded', respondedAt: new Date() },
-        });
+          await prisma.googleReview.update({
+            where: { id: review.id },
+            data: { aiResponse, status: 'responded', respondedAt: new Date() },
+          });
 
-        logger.info(`[ReviewMonitor] Responded to review ${review.id} (${review.rating}★ from ${review.reviewerName})`);
+          logger.info(`[ReviewMonitor] Responded to review ${review.id} (${review.rating}★ from ${review.reviewerName})`);
+        } catch (err) {
+          logger.error(`[ReviewMonitor] Failed to respond to review ${review.id}`, { err });
+        }
       }
     } catch (err) {
-      logger.error('[ReviewMonitor] Error:', { err });
+      logger.error('[ReviewMonitor] Job error:', { err });
     }
   });
 

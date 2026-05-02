@@ -15,6 +15,7 @@ import { startNurtureScheduler } from './jobs/nurtureScheduler';
 import { startReviewMonitor } from './jobs/reviewMonitor';
 import logger from './lib/logger';
 import nodemailer from 'nodemailer';
+import { prisma, connectWithRetry } from './lib/prisma';
 
 const app = express();
 const httpServer = createServer(app);
@@ -52,6 +53,22 @@ app.use('/reviews', reviewsRouter);
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', uptime: process.uptime(), timestamp: new Date() });
+});
+
+app.get('/health/detailed', async (_req, res) => {
+  let database: 'connected' | 'error' = 'connected';
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+  } catch {
+    database = 'error';
+  }
+  res.json({
+    status: database === 'connected' ? 'ok' : 'degraded',
+    uptime: process.uptime(),
+    database,
+    timestamp: new Date(),
+    version: process.env.npm_package_version,
+  });
 });
 
 app.use(errorHandler);
@@ -98,10 +115,13 @@ process.on('uncaughtException', (err) => {
 });
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
-httpServer.listen(PORT, () => {
-  logger.info(`Server running on port ${PORT}`);
-  startNurtureScheduler();
-  startReviewMonitor();
+
+connectWithRetry().then(() => {
+  httpServer.listen(PORT, () => {
+    logger.info(`Server running on port ${PORT}`);
+    startNurtureScheduler();
+    startReviewMonitor();
+  });
 });
 
 export { io };

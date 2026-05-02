@@ -38,21 +38,25 @@ export function startNurtureScheduler(): void {
         const step = lead.nurtureSteps[0];
         if (!step) continue;
 
-        await sendNurtureMessage(
-          lead.fromNumber,
-          lead.fromName || 'there',
-          lead.agent.businessDescription
-        );
+        try {
+          await sendNurtureMessage(
+            lead.fromNumber,
+            lead.fromName || 'there',
+            lead.agent.businessDescription
+          );
 
-        await prisma.nurtureStep.update({
-          where: { id: step.id },
-          data: { status: 'sent', sentAt: now },
-        });
+          await prisma.nurtureStep.update({
+            where: { id: step.id },
+            data: { status: 'sent', sentAt: now },
+          });
 
-        logger.info(`[NurtureScheduler] Sent step ${step.stepNumber} to lead ${lead.id}`);
+          logger.info(`[NurtureScheduler] Sent step ${step.stepNumber} to lead ${lead.id}`);
+        } catch (err) {
+          logger.error(`[NurtureScheduler] Failed to send step ${step.stepNumber} to lead ${lead.id}`, { err });
+        }
       }
     } catch (err) {
-      logger.error('[NurtureScheduler] Error:', { err });
+      logger.error('[NurtureScheduler] Job error:', { err });
     }
   });
 
