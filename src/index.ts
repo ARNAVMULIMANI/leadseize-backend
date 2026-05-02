@@ -9,6 +9,8 @@ import agentsRouter from './routes/agents';
 import webhooksRouter from './routes/webhooks';
 import leadsRouter from './routes/leads';
 import reviewsRouter from './routes/reviews';
+import widgetRouter from './routes/widget';
+import googleRouter from './routes/google';
 import { errorHandler } from './middleware/errorHandler';
 import { generalLimiter, authLimiter, webhookLimiter } from './middleware/rateLimiter';
 import { startNurtureScheduler } from './jobs/nurtureScheduler';
@@ -50,6 +52,8 @@ app.use('/agents', agentsRouter);
 app.use('/webhooks', webhooksRouter);
 app.use('/leads', leadsRouter);
 app.use('/reviews', reviewsRouter);
+app.use('/widget', widgetRouter);
+app.use('/google', googleRouter);
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', uptime: process.uptime(), timestamp: new Date() });

@@ -21,6 +21,9 @@ model Agent {
   alertEmail          String
   alertPhone          String
   passwordHash        String?
+  googleAccessToken   String?
+  googleRefreshToken  String?
+  googleLocationId    String?
   createdAt           DateTime      @default(now())
   leads               Lead[]
   reviews             GoogleReview[]
@@ -77,8 +80,9 @@ model GoogleReview {
   reviewerName String
   rating       Int
   reviewText   String
-  aiResponse   String?
-  respondedAt  DateTime?
-  status       String    @default("pending")
+  googleReviewId String?
+  aiResponse     String?
+  respondedAt    DateTime?
+  status         String    @default("pending")
   createdAt    DateTime  @default(now())
 }
